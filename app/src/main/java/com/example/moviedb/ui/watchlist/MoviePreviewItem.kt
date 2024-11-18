@@ -1,15 +1,15 @@
 package com.example.moviedb.ui.watchlist
 
 import android.view.View
-import com.squareup.picasso.Picasso
 import com.xwray.groupie.viewbinding.BindableItem
 import com.example.moviedb.R
-import com.example.moviedb.data.Movie_temp
+import com.example.moviedb.data.vo.MovieDetails
 import com.example.moviedb.databinding.ItemSmallBinding
+import com.example.moviedb.ui.loadUrl
 
 class MoviePreviewItem(
-    private val content: Movie_temp,
-    private val onClick: (movie: Movie_temp) -> Unit
+    private val content: MovieDetails,
+    private val onClick: (movie: MovieDetails) -> Unit
 ) : BindableItem<ItemSmallBinding>() {
 
     override fun getLayout() = R.layout.item_small
@@ -18,10 +18,7 @@ class MoviePreviewItem(
         view.imagePreview.setOnClickListener {
             onClick.invoke(content)
         }
-        // TODO Получать из модели
-        Picasso.get()
-            .load("https://www.kinopoisk.ru/images/film_big/1143242.jpg")
-            .into(view.imagePreview)
+        view.imagePreview.loadUrl(content.posterPath)
     }
 
     override fun initializeViewBinding(v: View): ItemSmallBinding = ItemSmallBinding.bind(v)

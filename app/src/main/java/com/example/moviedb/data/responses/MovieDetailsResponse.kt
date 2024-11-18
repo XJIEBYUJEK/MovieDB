@@ -1,16 +1,19 @@
-package com.example.moviedb.data
+package com.example.moviedb.data.responses
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.example.moviedb.BuildConfig
+import com.example.moviedb.data.ViewObject
+import com.example.moviedb.data.vo.MovieDetails
 
 @Serializable
-data class MovieDetails(
+data class MovieDetailsResponse(
     @SerialName("adult")
     val isAdult: Boolean?,
     @SerialName("backdrop_path")
     val backDropPath: String?,
-/*    @SerialName("belongs_to_collection")
-    val belongsToCollection: String?,*/
+    /*    @SerialName("belongs_to_collection")
+        val belongsToCollection: String?,*/
     @SerialName("budget")
     val budget: Int?,
     @SerialName("genres")
@@ -18,7 +21,7 @@ data class MovieDetails(
     @SerialName("homepage")
     val homepage: String?,
     @SerialName("id")
-    val id: Int?,
+    val id: Int,
     @SerialName("original_language")
     val originalLanguage: String?,
     @SerialName("original_title")
@@ -52,10 +55,23 @@ data class MovieDetails(
     @SerialName("vote_count")
     val voteCount: Int?
 
-) {
-    val rating: Float?
-        get() = voteAverage?.div(2)?.toFloat()
+): Response {
+    val rating: Float
+        get() = ratingCalculation(voteAverage)
     @SerialName("poster_path")
     var posterPath: String? = null
-        get() = "https://image.tmdb.org/t/p/w500$field"
+        get() = "${BuildConfig.IMAGE_URL}$SCALE$field"
+
+    override fun toViewObject() = MovieDetails(
+        id,
+        title,
+        overview,
+        rating,
+        posterPath,
+        false
+    )
+
+    companion object{
+        const val SCALE = "w500"
+    }
 }

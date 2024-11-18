@@ -1,10 +1,13 @@
-package com.example.moviedb.data
+package com.example.moviedb.data.responses
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.example.moviedb.BuildConfig
+import com.example.moviedb.data.ViewObject
+import com.example.moviedb.data.vo.Movie
 
 @Serializable
-data class Movie(
+data class MovieResponse(
     @SerialName("adult")
     val isAdult: Boolean?,
     @SerialName("backdrop_path")
@@ -31,10 +34,15 @@ data class Movie(
     val voteAverage: Double?,
     @SerialName("vote_count")
     val voteCount: Int?
-) {
-    val rating: Float?
-        get() = voteAverage?.div(2)?.toFloat()
+) : Response {
+    val rating: Float
+        get() = ratingCalculation(voteAverage)
     @SerialName("poster_path")
     var posterPath: String? = null
-        get() = "https://image.tmdb.org/t/p/w500$field"
+        get() = "${BuildConfig.IMAGE_URL}$SCALE$field"
+    companion object{
+        const val SCALE = "w500"
+    }
+
+    override fun toViewObject() = Movie(id, title, rating, posterPath)
 }

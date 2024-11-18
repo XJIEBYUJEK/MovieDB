@@ -2,36 +2,40 @@ package com.example.moviedb.ui.feed
 
 import android.os.Bundle
 import android.view.*
-import androidx.fragment.app.Fragment
+import androidx.annotation.StringRes
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navOptions
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
+import io.reactivex.Single
 import com.example.moviedb.BuildConfig
 import com.example.moviedb.R
-import com.example.moviedb.data.Movie
-import com.example.moviedb.data.MoviesResponse
+import com.example.moviedb.data.responses.MovieResponse
 import com.example.moviedb.databinding.FeedFragmentBinding
 import com.example.moviedb.databinding.FeedHeaderBinding
 import com.example.moviedb.network.MovieApiClient
-import com.example.moviedb.ui.afterTextChanged
+import com.example.moviedb.ui.BaseFragment
+import com.example.moviedb.ui.applySchedulers
 import timber.log.Timber
 
-class FeedFragment : Fragment(R.layout.feed_fragment) {
+class FeedFragment : BaseFragment<FeedFragmentBinding>() {
 
     private var _binding: FeedFragmentBinding? = null
     private var _searchBinding: FeedHeaderBinding? = null
 
-    // This property is only valid between onCreateView and
-    // onDestroyView.
-    private val binding get() = _binding!!
     private val searchBinding get() = _searchBinding!!
 
     private val adapter by lazy {
         GroupAdapter<GroupieViewHolder>()
+    }
+
+    override fun createViewBinding(
+        inflater: LayoutInflater,
+        container: ViewGroup?
+    ): FeedFragmentBinding {
+        _binding = FeedFragmentBinding.inflate(inflater, container, false)
+        _searchBinding = FeedHeaderBinding.bind(_binding!!.root)
+        return _binding!!
     }
 
     private val options = navOptions {
@@ -43,82 +47,58 @@ class FeedFragment : Fragment(R.layout.feed_fragment) {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        _binding = FeedFragmentBinding.inflate(inflater, container, false)
-        _searchBinding = FeedHeaderBinding.bind(binding.root)
-        return binding.root
-    }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupSearchObserver()
+        getMovies()
+    }
 
-        searchBinding.searchToolbar.binding.searchEditText.afterTextChanged {
-            Timber.d(it.toString())
-            if (it.toString().length > MIN_LENGTH) {
-                openSearch(it.toString())
-            }
-        }
-
+    private fun getMovies(){
         val getNowPlaying = MovieApiClient.apiClient.getNowPlaying(API_KEY, ENGLISH)
         val getPopular = MovieApiClient.apiClient.getPopularMovies(API_KEY, ENGLISH)
         val getUpcoming = MovieApiClient.apiClient.getUpcomingMovies(API_KEY, ENGLISH)
 
-        getNowPlaying.enqueue(object : Callback<MoviesResponse> {
-            override fun onResponse(
-                call: Call<MoviesResponse>,
-                response: Response<MoviesResponse>
-            ) {
-                val movies = response.body()?.results
+        compositeDisposable.add(
+            Single.zip(
+                getNowPlaying,
+                getPopular,
+                getUpcoming
+            ){ nowPlaying, popular, upcoming ->
+                hashMapOf(
+                    MovieList.NOW_PLAYING to nowPlaying,
+                    MovieList.POPULAR to popular,
+                    MovieList.UPCOMING to upcoming
+                )}
+                .applySchedulers()
+                .showProgressBar()
+                .subscribe({ response ->
+                val movies = response[MovieList.POPULAR]?.results ?: emptyList()
                 binding.moviesRecyclerView.adapter = adapter.apply {
-                    addAll(movies?.map {
+                    addAll(movies.map {
                         MovieItem(it) { movie ->
                             openMovieDetails(
                                 movie
                             )
                         }
-                    }?.toList() ?: listOf())
+                    }.toList())
                 }
-            }
-
-            override fun onFailure(call: Call<MoviesResponse>, t: Throwable) {
-                Timber.e(t.toString())
-            }
-        })
-
-        getPopular.enqueue(object : Callback<MoviesResponse> {
-            override fun onResponse(
-                call: Call<MoviesResponse>,
-                response: Response<MoviesResponse>
-            ) {
-                Timber.i("Success")
-                // TODO
-            }
-
-            override fun onFailure(call: Call<MoviesResponse>, t: Throwable) {
-                Timber.e(t.toString())
-            }
-        })
-
-        getUpcoming.enqueue(object : Callback<MoviesResponse> {
-            override fun onResponse(
-                call: Call<MoviesResponse>,
-                response: Response<MoviesResponse>
-            ) {
-                Timber.i("Success")
-                // TODO
-            }
-
-            override fun onFailure(call: Call<MoviesResponse>, t: Throwable) {
-                Timber.e(t.toString())
-            }
-        })
+            }, { error ->
+                Timber.e(error)
+            })
+        )
     }
 
-    private fun openMovieDetails(movie: Movie) {
+    private fun setupSearchObserver(){
+        val searchObservable = searchBinding.searchToolbar.getSearchObservableWithFilter()
+        compositeDisposable.add(searchObservable.subscribe({
+            Timber.i("Search text: $it")
+            //openSearch(it)
+        }, {
+            Timber.e(it)
+        }))
+    }
+
+    private fun openMovieDetails(movie: MovieResponse) {
         val bundle = Bundle()
         bundle.putInt(KEY_ID, movie.id)
         findNavController().navigate(R.id.movie_details_fragment, bundle, options)
@@ -150,6 +130,12 @@ class FeedFragment : Fragment(R.layout.feed_fragment) {
         const val KEY_ID = "id"
         const val KEY_SEARCH = "search"
         const val ENGLISH = "en-US"
-        private val API_KEY = BuildConfig.THE_MOVIE_DATABASE_API
+        private const val API_KEY = BuildConfig.THE_MOVIE_DATABASE_API
     }
+}
+
+private enum class MovieList() {
+    NOW_PLAYING,
+    POPULAR,
+    UPCOMING
 }

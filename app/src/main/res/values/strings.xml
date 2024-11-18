@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">MovieDB</string>
+    <string name="app_name">Мои фильмы</string>
 
     <string name="search_hint">Введите название</string>
 

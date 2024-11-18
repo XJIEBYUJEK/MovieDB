@@ -1,10 +1,13 @@
-package com.example.moviedb.data
+package com.example.moviedb.data.responses
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.example.moviedb.BuildConfig
+import com.example.moviedb.data.ViewObject
+import com.example.moviedb.data.vo.Actor
 
 @Serializable
-data class Cast(
+data class CastResponse(
     @SerialName("gender")
     val gender: Int,
     @SerialName("id")
@@ -17,8 +20,13 @@ data class Cast(
     val character: String?,
     @SerialName("order")
     val order: Int
-) {
+) : Response {
     @SerialName("profile_path")
     var profilePath: String? = null
-        get() = "https://image.tmdb.org/t/p/w500$field"
+        get() = "${BuildConfig.IMAGE_URL}$SCALE$field"
+    companion object{
+        const val SCALE = "w500"
+    }
+
+    override fun toViewObject() = Actor(id, name, character, profilePath)
 }
